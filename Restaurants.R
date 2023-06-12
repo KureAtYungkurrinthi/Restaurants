@@ -23,7 +23,7 @@ restaurants = as.data.frame(restaurants_collection$find())
 neighborhoods = as.data.frame(neighborhoods_collection$find())
 
 ##----------------------------------------------------------------------------##
-## Top 10 cuisine in NYC
+## Top 15 cuisine in NYC
 ##----------------------------------------------------------------------------##
 
 # Using mongodb aggregate function to fetch a list of cuisine and their counts
@@ -32,7 +32,7 @@ cuisine_counts <- cuisine_counts %>%
     rename(cuisine = "_id") %>%
     arrange(desc(count)) # Sort cuisine list from high count to low
 
-# Only keep top 10 most popular cuisine
+# Only keep top 15 most popular cuisine
 other_count <- sum(cuisine_counts$count[16:nrow(cuisine_counts)])
 other_index <- which(cuisine_counts$cuisine == "Other")
 cuisine_counts$count[other_index] <- cuisine_counts$count[other_index] + other_count
@@ -40,5 +40,14 @@ cuisine_counts <- cuisine_counts %>%
     head(15) %>%
     arrange(desc(cuisine == "Other"))
 
+# Draw bar chart
+ggplot(cuisine_counts, aes(x = cuisine, y = count, fill = cuisine, show.legend = FALSE)) + 
+    geom_bar(stat = "identity") + 
+    theme_minimal() +
+    labs(title = "Top 15 Most Popular Cuisine in NYC",
+         x = "Cuisine Type",
+         y = "Number of Restaurants") +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.position="none")
+
 # Draw pie chart
-pie(cuisine_counts$count, labels = cuisine_counts$cuisine, main = "Top 10 cuisine in NYC")
+pie(cuisine_counts$count, labels = cuisine_counts$cuisine, main = "Top 15 Most Popular Cuisine in NYC")
