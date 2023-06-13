@@ -85,7 +85,40 @@ ggplot(restaurant_scores, aes(x = year, y = avg_score, color = cuisine)) +
          y = "Average Score")
 
 ##----------------------------------------------------------------------------##
-## Restaurant Density in Neighborhoods.
+## Rating Distributions.
+##----------------------------------------------------------------------------##
+
+# Fetch the restaurant grades from MongoDB
+restaurant_scores <- as.data.frame(restaurants_collection$find(fields = '{"restaurant_id": 1, "grades": 1, "_id": 0}')) %>%
+    unnest(grades) # Unnest the grades array so that each row represents a single grade
+
+# Convert date to year only
+restaurant_scores$year <- year(restaurant_scores$date)
+
+# Show score distribution
+ggplot(restaurant_scores) +
+    geom_histogram(mapping = aes(x = score), binwidth = 0.5) +
+    coord_cartesian(xlim = c(0, 50))
+
+# Show grade distribution
+ggplot(restaurant_scores) +
+    geom_bar(mapping = aes(x = grade))
+
+# Calculate the number of restaurants for each cuisine
+restaurant_scores <- restaurant_scores %>%
+    group_by(year) %>%
+    summarise(avg_score = mean(score))
+
+# Plot the line chart
+ggplot(restaurant_scores, aes(x = year, y = avg_score)) +
+    geom_line() +
+    theme_minimal() +
+    labs(title = "Average Score Over Time",
+         x = "Year",
+         y = "Average Score")
+
+##----------------------------------------------------------------------------##
+## Restaurant Density on Map.
 ##----------------------------------------------------------------------------##
 
 # Load the restaurant location data
