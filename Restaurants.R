@@ -6,12 +6,14 @@
 install.packages("mongolite")
 install.packages("tidyverse")
 install.packages("sf")
+install.packages("maps")
 install.packages("mapview")
 
 # Load required library
 library(mongolite)
 library(tidyverse)
 library(sf)
+library(maps)
 library(mapview)
 
 ##----------------------------------------------------------------------------##
@@ -140,3 +142,48 @@ ggplot() +
     geom_polygon(data = map_data("world"), mapping = aes(long, lat, group = group), fill = "white", colour = "grey50") + 
     coord_quickmap() +
     geom_point(restaurant_locations, mapping = aes(coord1, coord2), colour = "red")
+
+##----------------------------------------------------------------------------##
+## Restaurant Map NYC.
+##----------------------------------------------------------------------------##
+
+# Load the restaurant location data
+restaurant_locations <- restaurants_collection$find(fields = '{"name": 1, "address.coord": 1, "_id": 0}') %>%
+    unnest(address) %>% # Ugly hacks
+    unnest_wider(coord, names_sep = "") %>% # split coordinates into latitude and longitude
+    filter(coord1 >= -74.2591, coord1 <= -73.7004, coord2 >= 40.4774, coord2 <= 40.9176) # Filter coordinates within NYC
+
+# transform the data frame into an sf object
+restaurant_nyc <- st_as_sf(x = na.omit(restaurant_locations),
+                        coords = c("coord1","coord2"),
+                        crs = 4326) %>% 
+    st_transform(crs = 2263)
+
+# create plot
+mapview_nyc  <- restaurant_nyc %>% 
+    mapview(
+        col.regions = "red",
+        legend = FALSE,
+        layer.name = "Restaurant Density in NYC",
+        alpha = 0.8
+    )
+
+# view results
+mapview_nyc
+
+################################################################################
+
+# Load the restaurant location data
+restaurant_locations <- restaurants_collection$find(fields = '{"address.coord": 1, "borough": 1, "cuisine": 1, "_id": 0}') %>%
+    unnest(address) %>% # Ugly hacks
+    unnest_wider(coord, names_sep = "") %>% # split coordinates into latitude and longitude
+    filter(coord1 >= -74.2591, coord1 <= -73.7004, coord2 >= 40.4774, coord2 <= 40.9176) # Filter coordinates within NYC
+
+# Grouping by borough and calculating the most popular cuisine
+popular_cuisine <- restaurant_locations %>%
+    group_by(borough) %>%
+    count(cuisine, sort = TRUE) %>%
+    slice(1) %>%
+    select(borough, cuisine)
+
+View(popular_cuisine)
