@@ -5,10 +5,14 @@
 # Install required packages
 install.packages("mongolite")
 install.packages("tidyverse")
+install.packages("sf")
+install.packages("mapview")
 
 # Load required library
 library(mongolite)
 library(tidyverse)
+library(sf)
+library(mapview)
 
 ##----------------------------------------------------------------------------##
 ## Data Wrangling: Loading and tidying the dataset to ensure it is in a clean and usable format.
@@ -19,7 +23,7 @@ restaurants_collection = mongo(collection="restaurants", db="sample_restaurants"
 neighborhoods_collection = mongo(collection="neighborhoods", db="sample_restaurants", url=Sys.getenv("connection_string"))
 
 ##----------------------------------------------------------------------------##
-## Top 15 Most Popular Cuisine in NYC.
+## Top 15 Most Popular Cuisine.
 ##----------------------------------------------------------------------------##
 
 # Using mongodb aggregate function to fetch a list of cuisine and their counts
@@ -40,13 +44,13 @@ cuisine_counts <- cuisine_counts %>%
 ggplot(cuisine_counts, aes(x = cuisine, y = count, fill = cuisine)) + 
     geom_bar(stat = "identity") + 
     theme_minimal() +
-    labs(title = "Top 15 Most Popular Cuisine in NYC",
+    labs(title = "Top 15 Most Popular Cuisine",
          x = "Cuisine Type",
          y = "Number of Restaurants") +
     theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.position="none")
 
 # Draw pie chart
-pie(cuisine_counts$count, labels = cuisine_counts$cuisine, main = "Top 15 Most Popular Cuisine in NYC")
+pie(cuisine_counts$count, labels = cuisine_counts$cuisine, main = "Top 15 Most Popular Cuisine")
 
 ##----------------------------------------------------------------------------##
 ## Cuisine Scores Over Time.
@@ -79,3 +83,27 @@ ggplot(restaurant_scores, aes(x = year, y = avg_score, color = cuisine)) +
     labs(title = "Average Score for Top 10 Cuisines Over Time",
          x = "Year",
          y = "Average Score")
+
+##----------------------------------------------------------------------------##
+## Restaurant Density in Neighborhoods.
+##----------------------------------------------------------------------------##
+
+# Load the restaurant location data
+restaurant_locations <- restaurants_collection$find(fields = '{"name": 1, "address.coord": 1, "_id": 0}') %>%
+    unnest(address) %>% # Ugly hacks
+    unnest_wider(coord, names_sep = "") # split coordinates into latitude and longitude
+
+# Filter coordinates within USA
+restaurant_locations_usa <- filter(restaurant_locations, coord1 >= -125, coord1 <= -67, coord2 >= 24, coord2 <= 50) 
+
+# Draw dot in USA
+ggplot() + 
+    geom_polygon(data = map_data("state"), mapping = aes(long, lat, group = group), fill = "white", colour = "grey50") + 
+    coord_quickmap() + 
+    geom_point(restaurant_locations_usa, mapping = aes(coord1, coord2), colour = "red")
+
+#Draw over the world
+ggplot() + 
+    geom_polygon(data = map_data("world"), mapping = aes(long, lat, group = group), fill = "white", colour = "grey50") + 
+    coord_quickmap() +
+    geom_point(restaurant_locations, mapping = aes(coord1, coord2), colour = "red")
