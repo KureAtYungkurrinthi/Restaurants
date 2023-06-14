@@ -17,6 +17,7 @@ library(sf)
 library(maps)
 library(mapview)
 library(modelr)
+library(splines)
 
 ##----------------------------------------------------------------------------##
 ## Data Wrangling: Loading and tidying the dataset to ensure it is in a clean and usable format.
@@ -198,7 +199,7 @@ popular_cuisine <- restaurant_locations %>%
 View(popular_cuisine)
 
 ##----------------------------------------------------------------------------##
-## Data Modelling - upervised machine learning models
+## Data Modelling - supervised machine learning models
 ##----------------------------------------------------------------------------##
 options(na.action = na.warn)
 
@@ -232,21 +233,32 @@ ggplot(restaurant_scores, aes(cuisine)) +
     geom_point(aes(y = score, colour = year)) +
     geom_point(data = grid, aes(y = pred), colour = "red", size = 4)
 
-# Predicting score based on year (highlighting cuisine)
-mod1 <- lm(score ~ year + cuisine, data = restaurant_scores)
-mod2 <- lm(score ~ year * cuisine, data = restaurant_scores)
+# Predicting score based on date (highlighting cuisine)
+mod1 <- lm(score ~ date + cuisine, data = restaurant_scores)
+mod2 <- lm(score ~ date * cuisine, data = restaurant_scores)
 grid <- restaurant_scores %>% 
-    data_grid(year, cuisine) %>% 
+    data_grid(date, cuisine) %>% 
     gather_predictions(mod1, mod2)
 
-ggplot(restaurant_scores, aes(year)) + 
+ggplot(restaurant_scores, aes(date)) + 
     geom_point(aes(y = score, colour = cuisine)) + 
     geom_line(data = grid, aes(y = pred)) + 
     facet_wrap(~ model)
 
-# compare cusines seperatly
-demo <- restaurant_scores %>% 
+# compare cuisines separately
+grid <- restaurant_scores %>% 
     gather_residuals(mod1, mod2)
-ggplot(demo, aes(year, resid, colour = cuisine)) + 
+ggplot(grid, aes(date, resid, colour = cuisine)) + 
     geom_point() + 
+    facet_grid(model ~ cuisine)
+
+# Attempt to predict cuisines score based on date
+mod3 <- lm(score ~ ns(date, 3) + cuisine, data = restaurant_scores)
+grid <- restaurant_scores %>% 
+    data_grid(date, cuisine) %>% 
+    gather_predictions(mod3)
+
+ggplot(restaurant_scores, aes(date)) +
+    geom_point(aes(y = score, colour = cuisine)) +
+    geom_line(data = grid, aes(y = pred)) + 
     facet_grid(model ~ cuisine)
