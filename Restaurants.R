@@ -1,3 +1,6 @@
+## Copyright (C) 2023 Sheng-fan Wang @ Flinders University
+## All Rights Reserved
+
 ##----------------------------------------------------------------------------##
 ## Required dependencies.
 ##----------------------------------------------------------------------------##
@@ -255,3 +258,32 @@ ggplot(restaurant_scores, aes(date)) +
     geom_point(aes(y = score, colour = cuisine)) +
     geom_line(data = grid, aes(y = pred)) + 
     facet_grid(model ~ cuisine)
+
+
+##----------------------------------------------------------------------------##
+## Data Modelling - K-means clustering
+##----------------------------------------------------------------------------##
+ggplot(restaurant_scores, aes(date, score)) + 
+    geom_point(aes(col=cuisine))
+
+# Convert dates to numeric and remove NA values
+restaurant_scores_clean <- restaurant_scores %>%
+    mutate(date = as.numeric(as.Date(date))) %>%
+    filter(!is.na(date), !is.na(score))
+
+# apply kmeans
+set.seed(100) #prior kmeans() function, set the seed to make k-means results "stable" 
+cuisineCluster <- kmeans(restaurant_scores_clean %>% select(2,4), center=10, nstart=200)
+
+#Match the predicted clusters with the original data.
+table(cuisineCluster$cluster, restaurant_scores_clean$cuisine)
+
+
+#Visualise the clusters
+#set the cluster to categorical variables
+restaurant_scores_clean$Cluster <- cuisineCluster$cluster
+restaurant_scores_clean$Cluster <- factor(restaurant_scores_clean$Cluster)
+
+#plot
+ggplot(restaurant_scores_clean, aes(date, score)) + 
+    geom_point(aes(col=Cluster))
