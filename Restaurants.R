@@ -180,7 +180,7 @@ restaurant_nyc <- st_as_sf(x = na.omit(restaurant_locations),
 mapview(
     restaurant_nyc,
     zcol = "cuisine",
-    cex = 1,
+    cex = 2,
     legend = FALSE,
     layer.name = "Restaurant Density in NYC")
 
@@ -277,7 +277,6 @@ cuisineCluster <- kmeans(restaurant_scores_clean %>% select(2,4), center=10, nst
 
 #Match the predicted clusters with the original data.
 table(cuisineCluster$cluster, restaurant_scores_clean$cuisine)
-
 
 #Visualise the clusters
 #set the cluster to categorical variables
