@@ -245,13 +245,6 @@ ggplot(restaurant_scores, aes(date)) +
     geom_line(data = grid, aes(y = pred)) + 
     facet_wrap(~ model)
 
-# compare cuisines separately
-grid <- restaurant_scores %>% 
-    gather_residuals(mod1, mod2)
-ggplot(grid, aes(date, resid, colour = cuisine)) + 
-    geom_point() + 
-    facet_grid(model ~ cuisine)
-
 # Attempt to predict cuisines score based on date
 mod3 <- lm(score ~ ns(date, 3) + cuisine, data = restaurant_scores)
 grid <- restaurant_scores %>% 
