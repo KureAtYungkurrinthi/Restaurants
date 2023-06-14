@@ -8,6 +8,7 @@ install.packages("tidyverse")
 install.packages("sf")
 install.packages("maps")
 install.packages("mapview")
+install.packages("modelr")
 
 # Load required library
 library(mongolite)
@@ -15,6 +16,7 @@ library(tidyverse)
 library(sf)
 library(maps)
 library(mapview)
+library(modelr)
 
 ##----------------------------------------------------------------------------##
 ## Data Wrangling: Loading and tidying the dataset to ensure it is in a clean and usable format.
@@ -22,7 +24,7 @@ library(mapview)
 
 # Load data from mongodb
 restaurants_collection = mongo(collection="restaurants", db="sample_restaurants", url=Sys.getenv("connection_string"))
-neighborhoods_collection = mongo(collection="neighborhoods", db="sample_restaurants", url=Sys.getenv("connection_string"))
+#neighborhoods_collection = mongo(collection="neighborhoods", db="sample_restaurants", url=Sys.getenv("connection_string"))
 
 ##----------------------------------------------------------------------------##
 ## Top 15 Most Popular Cuisine.
@@ -159,28 +161,24 @@ ggplot() +
 ##----------------------------------------------------------------------------##
 
 # Load the restaurant location data
-restaurant_locations <- restaurants_collection$find(fields = '{"name": 1, "address.coord": 1, "_id": 0}') %>%
+restaurant_locations <- restaurants_collection$find(fields = '{"name": 1, "address.coord": 1, "cuisine": 1, "_id": 0}') %>%
     unnest(address) %>% # Ugly hacks
     unnest_wider(coord, names_sep = "") %>% # split coordinates into latitude and longitude
     filter(coord1 >= -74.2591, coord1 <= -73.7004, coord2 >= 40.4774, coord2 <= 40.9176) # Filter coordinates within NYC
 
 # transform the data frame into an sf object
-restaurant_nyc <- st_as_sf(x = na.omit(restaurant_locations),
-                        coords = c("coord1","coord2"),
-                        crs = 4326) %>% 
+restaurant_nyc <- st_as_sf(x = na.omit(restaurant_locations), 
+                           coords = c("coord1","coord2"),
+                           crs = 4326) %>% 
     st_transform(crs = 2263)
 
 # create plot
-mapview_nyc  <- restaurant_nyc %>% 
-    mapview(
-        col.regions = "red",
-        legend = FALSE,
-        layer.name = "Restaurant Density in NYC",
-        alpha = 0.8
-    )
-
-# view results
-mapview_nyc
+mapview(
+    restaurant_nyc,
+    zcol = "cuisine",
+    cex = 1,
+    legend = FALSE,
+    layer.name = "Restaurant Density in NYC")
 
 ################################################################################
 
@@ -198,3 +196,57 @@ popular_cuisine <- restaurant_locations %>%
     select(borough, cuisine)
 
 View(popular_cuisine)
+
+##----------------------------------------------------------------------------##
+## Data Modelling - upervised machine learning models
+##----------------------------------------------------------------------------##
+options(na.action = na.warn)
+
+# Fetch the restaurant grades and cuisine from MongoDB
+restaurant_scores <- as.data.frame(restaurants_collection$find(fields = '{"restaurant_id": 1, "cuisine": 1, "grades": 1, "_id": 0}')) %>%
+    unnest(grades) # Unnest the grades array so that each row represents a single grade
+
+# Convert date to year only
+restaurant_scores$year <- year(restaurant_scores$date)
+
+# Calculate the number of restaurants for each cuisine
+top_cuisines <- restaurant_scores %>%
+    group_by(cuisine) %>%
+    summarise(count = n()) %>%
+    arrange(desc(count)) %>%
+    top_n(10)
+
+# Filter the data for the top 10 cuisines and calculate average score in each year
+restaurant_scores <- na.omit(restaurant_scores) %>%
+    filter(cuisine %in% top_cuisines$cuisine) %>%
+    filter(score < 100) %>%
+    mutate(cuisine = str_replace(cuisine, "Latin \\(Cuban, Dominican, Puerto Rican, South & Central American\\)", "Latin"))
+
+# Predicting score based on cuisine
+mod_scores <- lm(score ~ cuisine, data = restaurant_scores)
+grid <- restaurant_scores %>% 
+    data_grid(cuisine) %>% 
+    add_predictions(mod_scores)
+
+ggplot(restaurant_scores, aes(cuisine)) + 
+    geom_point(aes(y = score, colour = year)) +
+    geom_point(data = grid, aes(y = pred), colour = "red", size = 4)
+
+# Predicting score based on year (highlighting cuisine)
+mod1 <- lm(score ~ year + cuisine, data = restaurant_scores)
+mod2 <- lm(score ~ year * cuisine, data = restaurant_scores)
+grid <- restaurant_scores %>% 
+    data_grid(year, cuisine) %>% 
+    gather_predictions(mod1, mod2)
+
+ggplot(restaurant_scores, aes(year)) + 
+    geom_point(aes(y = score, colour = cuisine)) + 
+    geom_line(data = grid, aes(y = pred)) + 
+    facet_wrap(~ model)
+
+# compare cusines seperatly
+demo <- restaurant_scores %>% 
+    gather_residuals(mod1, mod2)
+ggplot(demo, aes(year, resid, colour = cuisine)) + 
+    geom_point() + 
+    facet_grid(model ~ cuisine)
