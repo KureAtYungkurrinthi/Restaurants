@@ -42,6 +42,10 @@ cuisine_counts <- cuisine_counts %>%
     head(15) %>%
     arrange(desc(cuisine == "Other"))
 
+# Shorter name for Latin cuisine
+latin_index <- which(grepl("Latin", cuisine_counts$cuisine))
+cuisine_counts$cuisine[latin_index] <- "Latin"
+
 # Draw bar chart
 ggplot(cuisine_counts, aes(x = cuisine, y = count, fill = cuisine)) + 
     geom_bar(stat = "identity") + 
@@ -78,6 +82,13 @@ restaurant_scores <- restaurant_scores %>%
     group_by(cuisine, year) %>%
     summarise(avg_score = mean(score))
 
+# Shorter name for Latin cuisine
+latin_index <- which(grepl("Latin", restaurant_scores$cuisine))
+restaurant_scores$cuisine[latin_index] <- "Latin"
+
+# Filter out data for the first and last year
+restaurant_scores <- filter(restaurant_scores, year > min(restaurant_scores$year), year < max(restaurant_scores$year))
+
 # Plot the line chart
 ggplot(restaurant_scores, aes(x = year, y = avg_score, color = cuisine)) +
     geom_line() +
@@ -106,7 +117,7 @@ ggplot(restaurant_scores) +
 ggplot(restaurant_scores) +
     geom_bar(mapping = aes(x = grade))
 
-# Calculate the number of restaurants for each cuisine
+# Get average score per year
 restaurant_scores <- restaurant_scores %>%
     group_by(year) %>%
     summarise(avg_score = mean(score))
