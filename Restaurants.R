@@ -12,6 +12,7 @@ install.packages("sf")
 install.packages("maps")
 install.packages("mapview")
 install.packages("modelr")
+install.packages("Metrics")
 
 # Load required library
 library(mongolite)
@@ -21,6 +22,7 @@ library(maps)
 library(mapview)
 library(modelr)
 library(splines)
+library(Metrics)
 
 ##----------------------------------------------------------------------------##
 ## Data Wrangling: Loading and tidying the dataset to ensure it is in a clean and usable format.
@@ -259,6 +261,16 @@ ggplot(restaurant_scores, aes(date)) +
     geom_line(data = grid, aes(y = pred)) + 
     facet_grid(model ~ cuisine)
 
+# Calculate the RMSE for each model
+mod_rmse <- add_predictions(restaurant_scores, mod_scores)
+rmse1 <- add_predictions(restaurant_scores, mod1)
+rmse2 <- add_predictions(restaurant_scores, mod2)
+rmse3 <- add_predictions(restaurant_scores, mod3)
+
+rmse(mod_rmse$score, mod_rmse$pred)
+rmse(rmse1$score, rmse1$pred)
+rmse(rmse2$score, rmse2$pred)
+rmse(rmse3$score, rmse3$pred)
 
 ##----------------------------------------------------------------------------##
 ## Data Modelling - K-means clustering
